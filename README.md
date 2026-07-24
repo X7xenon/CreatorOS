@@ -45,21 +45,26 @@ We have created an ultra-convenient runner script that launches everything in th
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/TheLucifer007/CreatorOS.git
+   git clone https://github.com/X7xenon/CreatorOS.git
    cd CreatorOS
    ```
 
-2. **Launch CreatorOS:**
-   Simply run the batch file (or type `creatoros` in your terminal if you added it to your PATH):
+2. **First-time setup** *(run only once):*
+   ```cmd
+   Setup.bat
+   ```
+   *This automatically creates a Python virtual environment, installs all Python packages, and installs Node.js dependencies for both the frontend and the WhatsApp bridge.*
+
+3. **Launch CreatorOS:**
    ```cmd
    CreatorOs.bat
    ```
-   *This automatically starts the FastAPI Backend (Port 8888), the Vite Frontend (Port 7070), and the WhatsApp Node Bridge (Port 3001).*
+   *This starts the FastAPI Backend (Port 8888), the Vite Frontend (Port 7070), and the WhatsApp Node Bridge (Port 3001) — all in the background.*
 
-3. **Open your browser:**
+4. **Open your browser:**
    Navigate to `http://localhost:7070` to view your dashboard!
 
-4. **Connect WhatsApp:**
+5. **Connect WhatsApp:**
    Go to the **Settings** page in CreatorOS, click **Show Login QR Code**, and scan it using your WhatsApp app to start receiving instant upload reminders.
 
 ---
