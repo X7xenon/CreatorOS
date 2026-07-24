@@ -32,11 +32,11 @@ CreatorOS uses a **Micro-monolith** structure combining the best of Python and N
 
 ```mermaid
 graph TD;
-    A[React Dashboard (Vite)] -->|REST API & WebSockets| B[FastAPI Backend]
-    B -->|Event Bus| C[Services & Repositories]
-    C --> D[(SQLite DB)]
-    B -->|HTTP Requests| E[WhatsApp Bridge (Node.js)]
-    E -->|Baileys| F[WhatsApp Servers]
+    A["React Dashboard (Vite)"] -->|REST API and WebSockets| B["FastAPI Backend"]
+    B -->|Event Bus| C["Services and Repositories"]
+    C --> D[("SQLite DB")]
+    B -->|HTTP Requests| E["WhatsApp Bridge (Node.js)"]
+    E -->|Baileys| F["WhatsApp Servers"]
 ```
 
 ## 🚀 Quick Start (Windows)
