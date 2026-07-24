@@ -1,8 +1,11 @@
 # Python / Backend
 backend/venv/
-backend/__pycache__/
-backend/*.pyc
-backend/creatoros.db*
+**/__pycache__/
+**/*.pyc
+*.db
+*.db-shm
+*.db-wal
+*.key
 backend/.env
 
 # Node / Frontend
