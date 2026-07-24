@@ -26,3 +26,20 @@ class WhatsAppNotificationProvider(NotificationProvider):
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to send WhatsApp message: {e}")
             return False
+
+def initialize_whatsapp_notifier():
+    from core.event_bus import event_bus
+    provider = WhatsAppNotificationProvider()
+    
+    async def handle_mission_event(data: dict):
+        event_type = data.get("type")
+        title = data.get("title")
+        
+        if event_type == "ACHIEVEMENT_UNLOCKED":
+            msg = f"🏆 *Achievement Unlocked!*\n\n{title}\n\nKeep up the great work! 🚀"
+            provider.send(msg)
+        elif event_type == "GOAL_COMPLETED":
+            msg = f"🎯 *Goal Completed!*\n\nYou successfully hit your goal: {title}\n\nSet your next mission in CreatorOS!"
+            provider.send(msg)
+            
+    event_bus.subscribe("mission_event", handle_mission_event)

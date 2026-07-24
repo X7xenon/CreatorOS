@@ -1,14 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { GlassCard } from './GlassCard';
 import { motion } from 'framer-motion';
 
 interface LiveCountWindowProps {
   initialCount?: number;
+  accountId?: string;
 }
 
-export const LiveCountWindow: React.FC<LiveCountWindowProps> = ({ initialCount = 0 }) => {
+export const LiveCountWindow: React.FC<LiveCountWindowProps> = ({ initialCount = 0, accountId = 'all' }) => {
   const [count, setCount] = useState(initialCount);
   const [trend, setTrend] = useState<'up' | 'down' | 'flat'>('flat');
+  
+  const accountIdRef = useRef(accountId);
+
+  useEffect(() => {
+    accountIdRef.current = accountId;
+  }, [accountId]);
+
+  useEffect(() => {
+    setCount(initialCount);
+  }, [initialCount]);
 
   useEffect(() => {
     const ws = new WebSocket('ws://localhost:8888/api/v1/ws/ws');
@@ -18,7 +29,10 @@ export const LiveCountWindow: React.FC<LiveCountWindowProps> = ({ initialCount =
         const data = JSON.parse(event.data);
         if (data.event === 'LiveActivity' && data.data.stats?.views) {
           setCount(prev => {
-            const next = data.data.stats.views;
+            let next = data.data.stats.views;
+            if (typeof next === 'object' && next !== null) {
+              next = next[accountIdRef.current] || prev;
+            }
             if (next > prev) setTrend('up');
             else if (next < prev) setTrend('down');
             else setTrend('flat');

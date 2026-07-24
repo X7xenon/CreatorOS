@@ -18,3 +18,37 @@ class AnalyticsSchema(BaseModel):
     race_name: str
     lap_time: float
     top_speed: float
+
+class GoalCreate(BaseModel):
+    title: str
+    category: str
+    target_metric: str
+    target_value: int
+    deadline: Optional[str] = None
+    account_id: Optional[str] = None
+
+class GoalResponse(BaseModel):
+    id: str
+    title: str
+    category: str
+    target_metric: str
+    target_value: int
+    current_value: int
+    deadline: Optional[str] = None
+    status: str
+    ai_suggestion: Optional[str] = None
+    account_id: Optional[str] = None
+    
+    class Config:
+        orm_mode = True
+
+class AchievementResponse(BaseModel):
+    id: str
+    title: str
+    description: str
+    icon: str
+    unlocked_at: str
+    account_id: Optional[str] = None
+    
+    class Config:
+        orm_mode = True

@@ -1,33 +1,34 @@
 from providers.base import PlatformProvider
 from instagrapi import Client
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import json
 
 class InstagrapiProvider(PlatformProvider):
-    def _get_client(self, session_data: str = None) -> Client:
+    def _get_client(self, session_data: str = None, proxy_url: Optional[str] = None) -> Client:
         cl = Client()
         if session_data:
             settings = json.loads(session_data)
             cl.set_settings(settings)
+        if proxy_url:
+            cl.set_proxy(proxy_url)
         return cl
 
-    def login(self, username: str, password: str) -> tuple[str, str]:
-        cl = self._get_client()
+    def login(self, username: str, password: str, proxy_url: Optional[str] = None) -> tuple[str, str]:
+        cl = self._get_client(proxy_url=proxy_url)
         cl.login(username, password)
         user_info = cl.user_info(cl.user_id)
         settings = cl.get_settings()
         return (user_info.username, json.dumps(settings))
         
-    def login_with_session(self, sessionid: str) -> tuple[str, str]:
-        cl = self._get_client()
+    def login_with_session(self, sessionid: str, proxy_url: Optional[str] = None) -> tuple[str, str]:
+        cl = self._get_client(proxy_url=proxy_url)
         cl.login_by_sessionid(sessionid)
-        # Fetch user info just to verify the session works and grab the true user ID
         user_info = cl.user_info(cl.user_id)
         settings = cl.get_settings()
         return (user_info.username, json.dumps(settings))
 
-    def fetch_profile(self, session_data: str, username: str) -> Dict[str, Any]:
-        cl = self._get_client(session_data)
+    def fetch_profile(self, session_data: str, username: str, proxy_url: Optional[str] = None) -> Dict[str, Any]:
+        cl = self._get_client(session_data, proxy_url=proxy_url)
         user_info = cl.user_info_by_username(username)
         return {
             "followers_count": user_info.follower_count,
@@ -37,8 +38,8 @@ class InstagrapiProvider(PlatformProvider):
             "full_name": user_info.full_name,
         }
 
-    def fetch_recent_media(self, session_data: str, username: str, limit: int = 10) -> List[Dict[str, Any]]:
-        cl = self._get_client(session_data)
+    def fetch_recent_media(self, session_data: str, username: str, limit: int = 10, proxy_url: Optional[str] = None) -> List[Dict[str, Any]]:
+        cl = self._get_client(session_data, proxy_url=proxy_url)
         user_id = cl.user_id_from_username(username)
         medias = cl.user_medias(user_id, amount=limit)
         

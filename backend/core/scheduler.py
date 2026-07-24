@@ -10,45 +10,69 @@ logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
 
 from core.database import SessionLocal
+from services.mission_service import MissionService
+from services.proxy_service import ProxyService
+from database.repositories.accounts_repo import AccountsRepository
 from models.account import Media, CalendarEvent
 from sqlalchemy import func
 
-# Global counter to simulate small tick activity between 15-minute DB syncs
-simulated_views_offset = 0
+# Global counter to simulate small tick activity per account
+simulated_views_offset_by_account = {}
 
 async def emit_live_activity():
-    global simulated_views_offset
+    global simulated_views_offset_by_account
     db = SessionLocal()
     try:
-        # Fetch real views from SQLite
-        real_total_views = db.query(func.sum(Media.views)).scalar() or 0
+        # Fetch real views from SQLite grouped by account, along with platform
+        from models.account import ConnectedAccount
+        views_data = db.query(Media.account_id, ConnectedAccount.platform, func.sum(Media.views)).join(ConnectedAccount).group_by(Media.account_id).all()
         real_revenue = db.query(func.sum(Media.likes)).scalar() or 0 # Reusing likes for mock revenue
     finally:
         db.close()
         
-    # Add a tiny realistic fluctuation
-    change = random.randint(-2, 5)
-    simulated_views_offset += change
+    views_response = {}
+    platform_views = {'YouTube': 0, 'Instagram': 0}
+    total_current_views = 0
+    total_change = 0
     
-    if simulated_views_offset < 0 and real_total_views == 0:
-        simulated_views_offset = 0
+    for account_id, platform, real_views in views_data:
+        real_views = real_views or 0
+        if account_id not in simulated_views_offset_by_account:
+            simulated_views_offset_by_account[account_id] = 0
+            
+        change = random.randint(-1, 3)
+        simulated_views_offset_by_account[account_id] += change
         
-    current_views = real_total_views + simulated_views_offset
+        if simulated_views_offset_by_account[account_id] < 0 and real_views == 0:
+            simulated_views_offset_by_account[account_id] = 0
+            
+        current = real_views + simulated_views_offset_by_account[account_id]
+        views_response[account_id] = current
+        
+        if platform in platform_views:
+            platform_views[platform] += current
+            
+        total_current_views += current
+        total_change += change
+        
+    views_response['all'] = total_current_views
+    views_response['platform_YouTube'] = platform_views['YouTube']
+    views_response['platform_Instagram'] = platform_views['Instagram']
     
-    # Generate a realistic message based on the change
-    if change > 3:
-        msg = f"Traffic spike! +{change} viewers"
-    elif change > 0:
-        msg = f"Steady growth: +{change} viewers"
-    elif change < 0:
-        msg = f"Audience dip: {abs(change)} viewers"
+    # Generate a realistic message based on the total change
+    if total_change > 3:
+        msg = f"Traffic spike! +{total_change} viewers"
+    elif total_change > 0:
+        msg = f"Steady growth: +{total_change} viewers"
+    elif total_change < 0:
+        msg = f"Audience dip: {abs(total_change)} viewers"
     else:
         msg = "Audience stable"
         
     await event_bus.publish("live_activity", {
         "message": msg,
         "stats": {
-            "views": current_views,
+            "views": views_response,
             "revenue": real_revenue
         }
     })
@@ -94,10 +118,37 @@ def check_upcoming_events():
     finally:
         db.close()
 
+async def evaluate_missions():
+    db = SessionLocal()
+    try:
+        accounts_repo = AccountsRepository(db)
+        mission_service = MissionService(db)
+        accounts = accounts_repo.get_all_accounts()
+        for account in accounts:
+            await mission_service.evaluate_milestones(account.id)
+            await mission_service.update_goals_progress(account.id)
+    except Exception as e:
+        logger.error(f"Error evaluating missions: {e}")
+    finally:
+        db.close()
+
+async def check_proxies_health():
+    """Scheduled job: test all ACTIVE proxies and mark dead ones."""
+    db = SessionLocal()
+    try:
+        proxy_svc = ProxyService(db)
+        await proxy_svc.health_check_all()
+    except Exception as e:
+        logger.error(f"Error during proxy health check: {e}")
+    finally:
+        db.close()
+
 def start_scheduler():
     # Run every 15 minutes
     scheduler.add_job(sync_daily_snapshots, 'interval', minutes=15)
     scheduler.add_job(sync_recent_media, 'interval', minutes=15)
+    scheduler.add_job(evaluate_missions, 'interval', minutes=15)
+    scheduler.add_job(check_proxies_health, 'interval', minutes=15)
     
     # Run every 2 minutes to check upcoming calendar events
     scheduler.add_job(check_upcoming_events, 'interval', minutes=2)

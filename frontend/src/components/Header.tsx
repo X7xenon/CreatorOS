@@ -37,11 +37,13 @@ export const Header: React.FC = () => {
         >
           <option value="all">All Accounts & Platforms</option>
           <optgroup label="YouTube">
+            <option value="platform_YouTube">All YouTube Accounts</option>
             {connectedAccounts.filter(a => a.platform === 'YouTube').map(acc => (
               <option key={acc.id} value={acc.id}>@{acc.handle}</option>
             ))}
           </optgroup>
           <optgroup label="Instagram">
+            <option value="platform_Instagram">All Instagram Accounts</option>
             {connectedAccounts.filter(a => a.platform === 'Instagram').map(acc => (
               <option key={acc.id} value={acc.id}>@{acc.handle}</option>
             ))}

@@ -45,3 +45,8 @@ app.include_router(websocket_router, prefix="/api/v1/ws", tags=["websocket"])
 app.include_router(comparison_router, prefix="/api/v1/comparison", tags=["comparison"])
 app.include_router(calendar_router, prefix="/api/v1/calendar", tags=["calendar"])
 app.include_router(whatsapp_router, prefix="/api/v1/whatsapp", tags=["whatsapp"])
+from api.v1.mission import router as mission_router
+from api.v1.proxy import router as proxy_router
+app.include_router(mission_router, prefix="/api/v1/mission", tags=["mission"])
+app.include_router(proxy_router, prefix="/api/v1/proxy", tags=["proxy"])
+

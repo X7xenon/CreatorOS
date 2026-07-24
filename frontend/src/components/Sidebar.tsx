@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Settings, Activity, Home } from 'lucide-react';
+import { LayoutDashboard, Calendar, Settings, Activity, Home, Target, Shield } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
   const linkStyle = ({ isActive }: { isActive: boolean }) => ({
@@ -37,7 +37,7 @@ export const Sidebar: React.FC = () => {
         </div>
       </div>
 
-      <nav style={{ flex: 1 }}>
+      <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <NavLink to="/home" style={linkStyle}>
           <Home size={20} />
           Home
@@ -45,6 +45,10 @@ export const Sidebar: React.FC = () => {
         <NavLink to="/dashboard" style={linkStyle}>
           <LayoutDashboard size={20} />
           Dashboard
+        </NavLink>
+        <NavLink to="/mission" style={linkStyle}>
+          <Target size={20} />
+          Mission Control
         </NavLink>
         <NavLink to="/analytics" style={linkStyle}>
           <Activity size={20} />
@@ -57,6 +61,10 @@ export const Sidebar: React.FC = () => {
       </nav>
 
       <div style={{ marginTop: 'auto' }}>
+        <NavLink to="/proxy" style={linkStyle}>
+          <Shield size={20} />
+          Proxy Manager
+        </NavLink>
         <NavLink to="/settings" style={linkStyle}>
           <Settings size={20} />
           Settings

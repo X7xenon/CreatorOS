@@ -8,33 +8,39 @@ from datetime import datetime, timedelta
 
 router = APIRouter()
 
+def apply_account_filter(query, model, account_id: str):
+    if not account_id or account_id == 'all':
+        return query
+    if account_id.startswith("platform_"):
+        platform = account_id.split("_")[1]
+        return query.join(ConnectedAccount, model.account_id == ConnectedAccount.id).filter(ConnectedAccount.platform == platform)
+    return query.filter(model.account_id == account_id)
+
 @router.get("/summary")
 def get_dashboard_summary(account_id: Optional[str] = None, db: Session = Depends(get_db)):
-    query = db.query(DailySnapshot)
-    if account_id and account_id != 'all':
-        query = query.filter(DailySnapshot.account_id == account_id)
-        
+    query = apply_account_filter(db.query(DailySnapshot), DailySnapshot, account_id)
     snapshots = query.order_by(DailySnapshot.date.desc()).limit(30).all()
     
-    if account_id and account_id != 'all':
+    # Calculate followers
+    if account_id and account_id != 'all' and not account_id.startswith("platform_"):
         total_followers = sum(s.followers_count or 0 for s in snapshots[:1])
     else:
-        accounts = db.query(DailySnapshot.account_id).distinct().all()
+        accounts_query = db.query(DailySnapshot.account_id).distinct()
+        accounts_query = apply_account_filter(accounts_query, DailySnapshot, account_id)
+        accounts = accounts_query.all()
+        
         total_followers = 0
         for acc in accounts:
             latest = db.query(DailySnapshot).filter(DailySnapshot.account_id == acc[0]).order_by(DailySnapshot.date.desc()).first()
             if latest:
                 total_followers += (latest.followers_count or 0)
     
-    media_query = db.query(Media)
-    if account_id and account_id != 'all':
-        media_query = media_query.filter(Media.account_id == account_id)
+    # Calculate views and likes
+    views_query = apply_account_filter(db.query(func.sum(Media.views)), Media, account_id)
+    total_views = views_query.scalar() or 0
     
-    total_views = db.query(func.sum(Media.views)).filter(Media.account_id == account_id).scalar() if account_id and account_id != 'all' else db.query(func.sum(Media.views)).scalar()
-    total_views = total_views or 0
-    
-    total_likes = db.query(func.sum(Media.likes)).filter(Media.account_id == account_id).scalar() if account_id and account_id != 'all' else db.query(func.sum(Media.likes)).scalar()
-    total_likes = total_likes or 0
+    likes_query = apply_account_filter(db.query(func.sum(Media.likes)), Media, account_id)
+    total_likes = likes_query.scalar() or 0
     
     return {
         "total_followers": total_followers,
@@ -44,10 +50,7 @@ def get_dashboard_summary(account_id: Optional[str] = None, db: Session = Depend
 
 @router.get("/top-videos")
 def get_top_videos(account_id: Optional[str] = None, db: Session = Depends(get_db)):
-    query = db.query(Media)
-    if account_id and account_id != 'all':
-        query = query.filter(Media.account_id == account_id)
-        
+    query = apply_account_filter(db.query(Media), Media, account_id)
     top_media = query.order_by(Media.views.desc()).limit(6).all()
     
     return [
@@ -65,13 +68,7 @@ def get_top_videos(account_id: Optional[str] = None, db: Session = Depends(get_d
 @router.get("/analytics/detailed")
 def get_detailed_analytics(account_id: Optional[str] = None, db: Session = Depends(get_db)):
     # 1. Follower Growth (Line Chart)
-    # We will get the last 30 snapshots for the account
-    snapshot_query = db.query(DailySnapshot)
-    if account_id and account_id != 'all':
-        snapshot_query = snapshot_query.filter(DailySnapshot.account_id == account_id)
-        
-    # For a real graph, we want chronological order, but limit to last 30 days
-    # In SQLite, date string sorting works if YYYY-MM-DD
+    snapshot_query = apply_account_filter(db.query(DailySnapshot), DailySnapshot, account_id)
     recent_snapshots = snapshot_query.order_by(DailySnapshot.date.desc()).limit(30).all()
     recent_snapshots.reverse()
     
@@ -80,24 +77,16 @@ def get_detailed_analytics(account_id: Optional[str] = None, db: Session = Depen
     ]
     
     # 2. Media Performance (Views vs Likes vs Comments)
-    media_query = db.query(Media)
-    if account_id and account_id != 'all':
-        media_query = media_query.filter(Media.account_id == account_id)
-        
-    total_views = db.query(func.sum(Media.views)).filter(Media.account_id == account_id).scalar() if account_id and account_id != 'all' else db.query(func.sum(Media.views)).scalar()
-    total_views = total_views or 0
-    
-    total_likes = db.query(func.sum(Media.likes)).filter(Media.account_id == account_id).scalar() if account_id and account_id != 'all' else db.query(func.sum(Media.likes)).scalar()
-    total_likes = total_likes or 0
-    
-    total_comments = db.query(func.sum(Media.comments)).filter(Media.account_id == account_id).scalar() if account_id and account_id != 'all' else db.query(func.sum(Media.comments)).scalar()
-    total_comments = total_comments or 0
+    total_views = apply_account_filter(db.query(func.sum(Media.views)), Media, account_id).scalar() or 0
+    total_likes = apply_account_filter(db.query(func.sum(Media.likes)), Media, account_id).scalar() or 0
+    total_comments = apply_account_filter(db.query(func.sum(Media.comments)), Media, account_id).scalar() or 0
     
     engagement_rate = 0
     if total_views > 0:
         engagement_rate = round(((total_likes + total_comments) / total_views) * 100, 2)
         
     # 3. Recent Reels (Bar Chart)
+    media_query = apply_account_filter(db.query(Media), Media, account_id)
     recent_media = media_query.order_by(Media.created_at.desc()).limit(10).all()
     recent_media.reverse()
     
@@ -108,8 +97,8 @@ def get_detailed_analytics(account_id: Optional[str] = None, db: Session = Depen
     
     return {
         "engagement_rate": engagement_rate,
-        "watch_time_hours": total_views * 0.05, # mock derived stat
-        "ctr": 8.4, # mock stat
+        "watch_time_hours": total_views * 0.05,
+        "ctr": 8.4,
         "follower_growth": follower_growth,
         "media_performance": {
             "Views": total_views,

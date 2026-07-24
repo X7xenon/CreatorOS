@@ -63,7 +63,7 @@ export const Dashboard: React.FC = () => {
         </div>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <LiveCountWindow initialCount={stats.views} />
+          <LiveCountWindow initialCount={stats.views} accountId={selectedFilter} />
           
           <GlassCard title="Live Activity Stream">
             <LiveFeed feed={feed} />
