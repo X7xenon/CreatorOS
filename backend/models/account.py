@@ -130,6 +130,7 @@ class Goal(Base):
     status = Column(String, default="IN_PROGRESS") # IN_PROGRESS, FAILED, COMPLETED
     ai_suggestion = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    last_reminded_at = Column(DateTime, nullable=True)
     
     account = relationship("ConnectedAccount", back_populates="goals")
     progress_history = relationship("GoalProgress", back_populates="goal")

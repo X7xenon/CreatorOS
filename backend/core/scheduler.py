@@ -143,12 +143,66 @@ async def check_proxies_health():
     finally:
         db.close()
 
+async def check_mission_deadlines():
+    from notifications.whatsapp import WhatsAppNotificationProvider
+    from datetime import datetime
+    from models.account import Goal
+    
+    db = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        goals = db.query(Goal).filter(Goal.status == 'IN_PROGRESS', Goal.deadline != None).all()
+        provider = WhatsAppNotificationProvider()
+        
+        for goal in goals:
+            days_left = (goal.deadline - now).days
+            should_remind = False
+            
+            if days_left <= 7 and days_left >= 0:
+                # Daily reminder if 1 week or less left
+                if not goal.last_reminded_at or (now - goal.last_reminded_at).days >= 1:
+                    should_remind = True
+            elif days_left > 7:
+                # Every 2 weeks or random minimum 10 days
+                if not goal.last_reminded_at:
+                    should_remind = True
+                else:
+                    days_since_remind = (now - goal.last_reminded_at).days
+                    if days_since_remind >= random.randint(10, 14):
+                        should_remind = True
+            elif days_left < 0:
+                # Overdue reminder (every 3 days)
+                if not goal.last_reminded_at or (now - goal.last_reminded_at).days >= 3:
+                    should_remind = True
+
+            if should_remind:
+                account_name = goal.account.username if goal.account else "Global"
+                msg = f"🎯 *Mission Reminder*\n\nAccount: {account_name}\nMission: {goal.title}\nProgress: {goal.current_value}/{goal.target_value} {goal.target_metric}\nDeadline: {goal.deadline.strftime('%b %d, %Y')}\n\nKeep pushing! You have {days_left} days left to achieve this!"
+                
+                if days_left < 0:
+                    msg = f"⚠️ *Mission Overdue*\n\nAccount: {account_name}\nMission: {goal.title}\nProgress: {goal.current_value}/{goal.target_value} {goal.target_metric}\n\nYou missed the deadline by {abs(days_left)} days. Review or extend your goal!"
+                
+                if provider.send(msg):
+                    logger.info(f"[Mission Reminder] {goal.title} | Status: SUCCESS")
+                    goal.last_reminded_at = now
+                    db.commit()
+                else:
+                    logger.info(f"[Mission Reminder] {goal.title} | Status: FAILED")
+                    
+    except Exception as e:
+        logger.error(f"Error checking mission deadlines: {e}")
+    finally:
+        db.close()
+
 def start_scheduler():
     # Run every 15 minutes
     scheduler.add_job(sync_daily_snapshots, 'interval', minutes=15)
     scheduler.add_job(sync_recent_media, 'interval', minutes=15)
     scheduler.add_job(evaluate_missions, 'interval', minutes=15)
     scheduler.add_job(check_proxies_health, 'interval', minutes=15)
+    
+    # Run every hour for mission deadlines
+    scheduler.add_job(check_mission_deadlines, 'interval', hours=1)
     
     # Run every 2 minutes to check upcoming calendar events
     scheduler.add_job(check_upcoming_events, 'interval', minutes=2)

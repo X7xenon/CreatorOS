@@ -1,26 +1,20 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any
-from domains.accounts.service import AccountsService, AccountsRepository
-from domains.analytics.service import AnalyticsService, AnalyticsRepository
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from core.database import get_db
+from models.account import ConnectedAccount, DailySnapshot, Media
 
 router = APIRouter()
-
-def get_accounts_service():
-    return AccountsService(AccountsRepository())
-
-def get_analytics_service():
-    return AnalyticsService(AnalyticsRepository())
 
 class ContentItem(BaseModel):
     title: str
     views: int
-    revenue: float
 
 class AccountMetrics(BaseModel):
     views: float = 0.0
     subs: float = 0.0
-    revenue: float = 0.0
 
 class AccountComparisonData(BaseModel):
     username: str
@@ -34,32 +28,41 @@ class ComparisonResponse(BaseModel):
 @router.get("/", response_model=ComparisonResponse)
 def compare_accounts(
     usernames: List[str] = Query(..., description="List of usernames to compare"),
-    accounts_service: AccountsService = Depends(get_accounts_service),
-    analytics_service: AnalyticsService = Depends(get_analytics_service)
+    db: Session = Depends(get_db)
 ):
     if len(usernames) < 2:
         raise HTTPException(status_code=400, detail="Provide at least two usernames to compare")
         
-    accounts = accounts_service.get_accounts_by_usernames(usernames)
+    accounts = db.query(ConnectedAccount).filter(ConnectedAccount.username.in_(usernames)).all()
     if not accounts:
         raise HTTPException(status_code=404, detail="Accounts not found")
         
-    account_ids = [acc["id"] for acc in accounts]
-    comparison_data = analytics_service.get_comparison_data(account_ids)
-    
     result = {}
     for acc in accounts:
-        aid = acc["id"]
-        data = comparison_data.get(aid, {"metrics": {}, "top_content": []})
-        result[acc["username"]] = AccountComparisonData(
-            username=acc["username"],
-            platform=acc["platform"],
+        # Get latest followers
+        latest_snapshot = db.query(DailySnapshot).filter(DailySnapshot.account_id == acc.id).order_by(DailySnapshot.date.desc()).first()
+        subs = latest_snapshot.followers_count if latest_snapshot and latest_snapshot.followers_count else 0
+        
+        # Calculate total views
+        views = db.query(func.sum(Media.views)).filter(Media.account_id == acc.id).scalar() or 0
+        
+        
+        # Get top content
+        top_media = db.query(Media).filter(Media.account_id == acc.id).order_by(Media.views.desc()).limit(3).all()
+        
+        top_content = []
+        for m in top_media:
+            title = m.caption[:30] + "..." if m.caption else "Untitled"
+            top_content.append(ContentItem(title=title, views=m.views))
+            
+        result[acc.username] = AccountComparisonData(
+            username=acc.username,
+            platform=acc.platform,
             metrics=AccountMetrics(
-                views=data["metrics"].get("views", 0),
-                subs=data["metrics"].get("subs", 0),
-                revenue=data["metrics"].get("revenue", 0)
+                views=views,
+                subs=subs
             ),
-            top_content=[ContentItem(**c) for c in data["top_content"]]
+            top_content=top_content
         )
         
     return ComparisonResponse(comparisons=result)

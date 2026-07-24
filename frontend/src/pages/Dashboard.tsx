@@ -7,7 +7,7 @@ import { LiveCountWindow } from '../components/LiveCountWindow';
 import { useStore } from '../store/useStore';
 
 export const Dashboard: React.FC = () => {
-  const [stats, setStats] = useState({ views: 0, subscribers: 0, revenue: 0 });
+  const [stats, setStats] = useState({ views: 0, subscribers: 0, likes: 0 });
   const [followerGrowth, setFollowerGrowth] = useState<any[]>([]);
   const [feed, setFeed] = useState<any[]>([]);
   const { selectedFilter, connectedAccounts } = useStore();
@@ -23,7 +23,7 @@ export const Dashboard: React.FC = () => {
         setStats({
           views: data.total_views || 0,
           subscribers: data.total_followers || 0,
-          revenue: data.total_likes || 0 // Reusing revenue for total likes for now
+          likes: data.total_likes || 0
         });
       })
       .catch(console.error);

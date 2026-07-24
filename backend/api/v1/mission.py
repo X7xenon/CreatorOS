@@ -8,6 +8,13 @@ router = APIRouter()
 
 @router.post("/goals", response_model=GoalResponse)
 def create_goal(goal_in: GoalCreate, db: Session = Depends(get_db)):
+    from datetime import datetime
+    
+    parsed_deadline = None
+    if goal_in.deadline:
+        # Handle JS ISO string which might end with Z
+        parsed_deadline = datetime.fromisoformat(goal_in.deadline.replace('Z', '+00:00'))
+
     repo = MissionRepository(db)
     goal = repo.create_goal(
         account_id=goal_in.account_id,
@@ -15,7 +22,7 @@ def create_goal(goal_in: GoalCreate, db: Session = Depends(get_db)):
         category=goal_in.category,
         target_metric=goal_in.target_metric,
         target_value=goal_in.target_value,
-        deadline=goal_in.deadline
+        deadline=parsed_deadline
     )
     return goal
 

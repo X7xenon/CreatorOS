@@ -1,8 +1,10 @@
 import React from 'react';
 import { useStore } from '../store/useStore';
+import { useNavigate } from 'react-router-dom';
 
 export const Header: React.FC = () => {
   const { connectedAccounts, selectedFilter, setSelectedFilter } = useStore();
+  const navigate = useNavigate();
 
   return (
     <header style={{
@@ -51,9 +53,29 @@ export const Header: React.FC = () => {
         </select>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--success-color)', boxShadow: 'var(--success-glow)' }} />
-        <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>System Online</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        <button 
+          onClick={() => navigate('/compare')}
+          style={{
+            background: 'var(--accent-color)',
+            color: '#fff',
+            border: 'none',
+            padding: '6px 14px',
+            borderRadius: '6px',
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            fontWeight: 500,
+            transition: 'background 0.2s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = '#6d28d9'}
+          onMouseLeave={e => e.currentTarget.style.background = 'var(--accent-color)'}
+        >
+          Compare Accounts
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--success-color)', boxShadow: 'var(--success-glow)' }} />
+            <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>System Online</span>
+        </div>
       </div>
     </header>
   );

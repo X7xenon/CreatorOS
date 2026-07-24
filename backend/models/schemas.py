@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
 
 class StatusSchema(BaseModel):
     service_name: str
@@ -34,13 +35,13 @@ class GoalResponse(BaseModel):
     target_metric: str
     target_value: int
     current_value: int
-    deadline: Optional[str] = None
+    deadline: Optional[datetime] = None
     status: str
     ai_suggestion: Optional[str] = None
     account_id: Optional[str] = None
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class AchievementResponse(BaseModel):
     id: str

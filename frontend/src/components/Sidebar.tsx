@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Settings, Activity, Home, Target, Shield } from 'lucide-react';
+import { LayoutDashboard, Calendar, Settings, Activity, Home, Target, Shield, Power } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
   const linkStyle = ({ isActive }: { isActive: boolean }) => ({
@@ -17,6 +17,18 @@ export const Sidebar: React.FC = () => {
     marginBottom: '8px',
     border: isActive ? '1px solid var(--panel-border)' : '1px solid transparent',
   });
+  const handleExit = async () => {
+    if (window.confirm("Are you sure you want to shut down CreatorOS? This will stop the backend, frontend, and WhatsApp services.")) {
+      try {
+        await fetch('http://localhost:8888/api/v1/system/shutdown', { method: 'POST' });
+        alert("CreatorOS services have been shut down. You can safely close this browser window.");
+        window.close(); // May be blocked by browsers, but worth trying
+      } catch (err) {
+        console.error("Shutdown error", err);
+        alert("Tried to shut down. If the terminals are closed, it was successful.");
+      }
+    }
+  };
 
   return (
     <aside style={{
@@ -69,6 +81,22 @@ export const Sidebar: React.FC = () => {
           <Settings size={20} />
           Settings
         </NavLink>
+        
+        <button 
+          onClick={handleExit}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 20px', 
+            borderRadius: '8px', color: '#ef4444', background: 'transparent',
+            border: '1px solid transparent', cursor: 'pointer', fontWeight: 500,
+            width: '100%', textAlign: 'left', marginTop: '16px', fontSize: '1rem',
+            fontFamily: 'inherit'
+          }}
+          onMouseOver={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+          onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+        >
+          <Power size={20} />
+          Exit CreatorOS
+        </button>
       </div>
     </aside>
   );

@@ -2,7 +2,7 @@ import React from 'react';
 import { GlassCard } from './GlassCard';
 
 interface HeroStatsProps {
-  stats: { views: number; subscribers: number; revenue: number; };
+  stats: { views: number; subscribers: number; likes: number; };
   isInstagram?: boolean;
 }
 
@@ -28,7 +28,7 @@ export const HeroStats: React.FC<HeroStatsProps> = ({ stats, isInstagram }) => {
       <GlassCard>
         <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '2px' }}>Total Likes</div>
         <div className="font-mono glow-success" style={{ fontSize: '2.5rem', fontWeight: 600 }}>
-          {stats.revenue > 0 ? (stats.revenue / 1000).toFixed(1) + 'K' : '0.0K'}
+          {stats.likes > 0 ? (stats.likes / 1000).toFixed(1) + 'K' : '0.0K'}
         </div>
       </GlassCard>
     </div>

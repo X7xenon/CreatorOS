@@ -1,4 +1,8 @@
 from fastapi import FastAPI
+import os
+import subprocess
+import threading
+import time
 from fastapi.middleware.cors import CORSMiddleware
 from api.v1.dashboard import router as dashboard_router
 from core.websocket.router import router as websocket_router
@@ -35,6 +39,41 @@ app.add_middleware(
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+@app.post("/api/v1/system/shutdown")
+def shutdown_system():
+    def kill_port(port):
+        try:
+            # Find PID listening on port
+            output = subprocess.check_output(f'netstat -ano | findstr :{port}', shell=True).decode()
+            lines = output.strip().split('\n')
+            for line in lines:
+                if 'LISTENING' in line:
+                    parts = line.strip().split()
+                    pid = parts[-1]
+                    subprocess.Popen(f'taskkill /F /PID {pid} /T', shell=True)
+        except Exception as e:
+            pass
+            
+    # Kill frontend and whatsapp
+    kill_port(7070)
+    kill_port(3001)
+    
+    # We delay killing the backend slightly so the response can be sent
+    def kill_self():
+        import time
+        time.sleep(1)
+        kill_port(8888)
+        
+        # Fallback to title kill just in case
+        os.system('taskkill /FI "WINDOWTITLE eq WhatsApp Bridge*" /T /F')
+        os.system('taskkill /FI "WINDOWTITLE eq React Frontend*" /T /F')
+        os.system('taskkill /FI "WINDOWTITLE eq FastAPI Backend*" /T /F')
+        
+        os._exit(0)
+    
+    threading.Thread(target=kill_self).start()
+    return {"status": "shutting down"}
 
 from api.v1.calendar import router as calendar_router
 from api.v1.whatsapp import router as whatsapp_router
