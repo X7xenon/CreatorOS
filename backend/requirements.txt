@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+websockets
+apscheduler
+pydantic
+sqlalchemy
+httpx
+python-dotenv

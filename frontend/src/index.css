@@ -1,0 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg-color: #050505;
+  --panel-bg: rgba(20, 20, 20, 0.6);
+  --panel-border: rgba(255, 255, 255, 0.05);
+  --text-primary: #ffffff;
+  --text-secondary: #888888;
+  --accent-color: #3b82f6;
+  --accent-glow: 0 0 15px rgba(59, 130, 246, 0.5);
+  --success-color: #10b981;
+  --success-glow: 0 0 15px rgba(16, 185, 129, 0.5);
+  --danger-color: #ef4444;
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+[data-theme='cyberpunk'] {
+  --bg-color: #0b0914;
+  --panel-bg: rgba(20, 15, 30, 0.7);
+  --panel-border: rgba(255, 0, 128, 0.2);
+  --text-primary: #f0f0f0;
+  --text-secondary: #a09eb0;
+  --accent-color: #ff007f;
+  --accent-glow: 0 0 20px rgba(255, 0, 127, 0.8);
+  --success-color: #00ffcc;
+  --success-glow: 0 0 20px rgba(0, 255, 204, 0.8);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  transition: background-color 0.3s ease;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 600;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Glassmorphism Panel */
+.glass-panel {
+  background: var(--panel-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.glass-panel:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* Text Utilities */
+.text-gradient {
+  background: linear-gradient(90deg, #fff, #888);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Glowing text */
+.glow-accent {
+  color: var(--accent-color);
+  text-shadow: var(--accent-glow);
+}
+
+.glow-success {
+  color: var(--success-color);
+  text-shadow: var(--success-glow);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--panel-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.2);
+}
