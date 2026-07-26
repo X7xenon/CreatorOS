@@ -8,8 +8,12 @@ from api.v1.dashboard import router as dashboard_router
 from core.websocket.router import router as websocket_router
 from api.v1.comparison import router as comparison_router
 from api.v1.auth import router as auth_router
+from api.v1.scripting import router as scripting_router
 from core.database import engine, Base
 from core.scheduler import start_scheduler, stop_scheduler
+
+import models.account
+import models.scripting
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -84,6 +88,7 @@ app.include_router(websocket_router, prefix="/api/v1/ws", tags=["websocket"])
 app.include_router(comparison_router, prefix="/api/v1/comparison", tags=["comparison"])
 app.include_router(calendar_router, prefix="/api/v1/calendar", tags=["calendar"])
 app.include_router(whatsapp_router, prefix="/api/v1/whatsapp", tags=["whatsapp"])
+app.include_router(scripting_router)
 from api.v1.mission import router as mission_router
 from api.v1.proxy import router as proxy_router
 app.include_router(mission_router, prefix="/api/v1/mission", tags=["mission"])

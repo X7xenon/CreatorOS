@@ -17,10 +17,20 @@ export const Settings: React.FC = () => {
   // Telegram State
   const [botToken, setBotToken] = useState('');
   const [chatId, setChatId] = useState('');
+  
+  // AI Settings State
+  const [aiProvider, setAiProvider] = useState('Gemini');
+  const [aiModel, setAiModel] = useState('Gemini 2.5 Flash');
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('creatoros-theme') || 'dark';
     setTheme(savedTheme);
+    
+    const savedProvider = localStorage.getItem('creatoros-ai-provider') || 'Gemini';
+    const savedModel = localStorage.getItem('creatoros-ai-model') || 'Gemini 2.5 Flash';
+    setAiProvider(savedProvider);
+    setAiModel(savedModel);
+    
     fetchAccounts();
   }, [fetchAccounts]);
 
@@ -28,6 +38,16 @@ export const Settings: React.FC = () => {
     setTheme(newTheme);
     localStorage.setItem('creatoros-theme', newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
+  };
+
+  const handleAiSettingChange = (type: 'provider' | 'model', value: string) => {
+    if (type === 'provider') {
+      setAiProvider(value);
+      localStorage.setItem('creatoros-ai-provider', value);
+    } else {
+      setAiModel(value);
+      localStorage.setItem('creatoros-ai-model', value);
+    }
   };
 
   const handleConnectInstagram = async () => {
@@ -246,6 +266,53 @@ export const Settings: React.FC = () => {
             <p style={{ color: 'black', textAlign: 'center', margin: '8px 0 0 0', fontWeight: 500 }}>Scan with WhatsApp</p>
           </div>
         )}
+      </GlassCard>
+
+      {/* AI ENGINE SETTINGS */}
+      <GlassCard title="🧠 AI Engine Settings">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Configure the intelligence engine that powers CreatorOS Scripting and Insights.</p>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <label style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500 }}>AI Provider</label>
+            <select 
+              value={aiProvider}
+              onChange={(e) => handleAiSettingChange('provider', e.target.value)}
+              style={{
+                width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--panel-border)',
+                background: 'rgba(0,0,0,0.2)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none'
+              }}
+            >
+              <option value="Gemini">Google Gemini</option>
+              <option value="OpenAI" disabled>OpenAI (Coming Soon)</option>
+              <option value="Claude" disabled>Anthropic Claude (Coming Soon)</option>
+              <option value="Local" disabled>Local LLM (Coming Soon)</option>
+            </select>
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <label style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500 }}>AI Model</label>
+            <select 
+              value={aiModel}
+              onChange={(e) => handleAiSettingChange('model', e.target.value)}
+              style={{
+                width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--panel-border)',
+                background: 'rgba(0,0,0,0.2)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none'
+              }}
+            >
+              <option value="Gemini 2.5 Flash">Gemini 2.5 Flash (Fastest)</option>
+              <option value="Gemini 2.5 Pro">Gemini 2.5 Pro (Best Reasoning)</option>
+              <option value="Gemini Flash Lite">Gemini Flash Lite (Most Efficient)</option>
+            </select>
+          </div>
+
+          <button style={{
+            alignSelf: 'flex-start', padding: '10px 20px', borderRadius: '8px', background: 'var(--panel-border)',
+            color: 'var(--text-primary)', border: 'none', cursor: 'pointer', fontWeight: 500
+          }}>
+            Test Connection
+          </button>
+        </div>
       </GlassCard>
 
       {/* Instagram Login Modal */}

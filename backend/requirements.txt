@@ -6,3 +6,4 @@ pydantic
 sqlalchemy
 httpx
 python-dotenv
+google-generativeai

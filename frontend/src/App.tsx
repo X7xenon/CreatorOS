@@ -8,6 +8,7 @@ import { Calendar } from './pages/Calendar';
 import { Settings } from './pages/Settings';
 import { Home } from './pages/Home';
 import { Compare } from './pages/Compare';
+import { ScriptingLab } from './pages/ScriptingLab';
 import ProxyManager from './pages/ProxyManager';
 import { useStore } from './store/useStore';
 
@@ -33,6 +34,7 @@ function App() {
         'analytics': 'Analytics',
         'compare': 'Compare',
         'calendar': 'Calendar',
+        'scripting': 'Scripting Lab',
         'proxy': 'Proxy Manager',
         'settings': 'Settings'
       };
@@ -53,6 +55,7 @@ function App() {
         <Route path="analytics" element={<Analytics />} />
         <Route path="compare" element={<Compare />} />
         <Route path="calendar" element={<Calendar />} />
+        <Route path="scripting" element={<ScriptingLab />} />
         <Route path="proxy" element={<ProxyManager />} />
         <Route path="settings" element={<Settings />} />
       </Route>
