@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getApiBase } from '../utils/apiBase';
 
 interface Account {
   id: string;
@@ -18,7 +19,7 @@ export const useStore = create<StoreState>((set) => ({
   selectedFilter: 'all',
   fetchAccounts: async () => {
     try {
-      const res = await fetch('http://localhost:8888/api/v1/auth/accounts');
+      const res = await fetch(`${getApiBase()}/api/v1/auth/accounts`);
       const data = await res.json();
       set({ connectedAccounts: data });
     } catch (e) {

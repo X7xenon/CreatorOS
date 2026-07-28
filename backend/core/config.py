@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     sqlite_url: str = "sqlite:///./creatoros.db"
     whatsapp_target_number: str = ""
+    gemini_api_key: str = ""
     reminder_schedules_minutes: list[int] = [1440, 60, 30, 10, 0]
 
     class Config:

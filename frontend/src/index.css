@@ -104,3 +104,9 @@ a {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255,255,255,0.2);
 }
+
+/* Select Option styling for dark mode readability */
+option {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+}

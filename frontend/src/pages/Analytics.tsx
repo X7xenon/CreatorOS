@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { useStore } from '../store/useStore';
+import { getApiBase } from '../utils/apiBase';
 import { Doughnut, Line, Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Filler, Tooltip, Legend } from 'chart.js';
 
@@ -20,7 +21,7 @@ export const Analytics: React.FC = () => {
   const [data, setData] = useState<AnalyticsData | null>(null);
 
   useEffect(() => {
-    fetch(`http://localhost:8888/api/v1/dashboard/analytics/detailed?account_id=${selectedFilter}`)
+    fetch(`${getApiBase()}/api/v1/dashboard/analytics/detailed?account_id=${selectedFilter}`)
       .then(res => res.json())
       .then(setData)
       .catch(console.error);

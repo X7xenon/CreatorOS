@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { useStore } from '../store/useStore';
 import { Trash2, PlusCircle, Activity, Eye, EyeOff } from 'lucide-react';
+import { getApiBase } from '../utils/apiBase';
 
 export const Settings: React.FC = () => {
   const [theme, setTheme] = useState('dark');
@@ -20,14 +21,14 @@ export const Settings: React.FC = () => {
   
   // AI Settings State
   const [aiProvider, setAiProvider] = useState('Gemini');
-  const [aiModel, setAiModel] = useState('Gemini 2.5 Flash');
+  const [aiModel, setAiModel] = useState('Gemini 3.5 Flash');
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('creatoros-theme') || 'dark';
     setTheme(savedTheme);
     
     const savedProvider = localStorage.getItem('creatoros-ai-provider') || 'Gemini';
-    const savedModel = localStorage.getItem('creatoros-ai-model') || 'Gemini 2.5 Flash';
+    const savedModel = localStorage.getItem('creatoros-ai-model') || 'Gemini 3.5 Flash';
     setAiProvider(savedProvider);
     setAiModel(savedModel);
     
@@ -54,7 +55,7 @@ export const Settings: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('http://localhost:8888/api/v1/auth/instagram/login', {
+      const res = await fetch(`${getApiBase()}/api/v1/auth/instagram/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -86,7 +87,7 @@ export const Settings: React.FC = () => {
   
   const handleRemoveAccount = async (id: string) => {
     try {
-      await fetch(`http://localhost:8888/api/v1/auth/accounts/${id}`, { method: 'DELETE' });
+      await fetch(`${getApiBase()}/api/v1/auth/accounts/${id}`, { method: 'DELETE' });
       fetchAccounts();
     } catch(e) {
       console.error(e);
@@ -197,7 +198,7 @@ export const Settings: React.FC = () => {
               setLoading(true);
               try {
                 // Generate QR
-                const res = await fetch('http://localhost:8888/api/v1/whatsapp/qr');
+                const res = await fetch(`${getApiBase()}/api/v1/whatsapp/qr`);
                 const data = await res.json();
                 if (data.connected) {
                   alert('✅ WhatsApp is already connected!');
@@ -229,7 +230,7 @@ export const Settings: React.FC = () => {
               setLoading(true);
               try {
                 // First save config
-                const configRes = await fetch('http://localhost:8888/api/v1/whatsapp/config', {
+                const configRes = await fetch(`${getApiBase()}/api/v1/whatsapp/config`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ target_number: botToken })
@@ -238,7 +239,7 @@ export const Settings: React.FC = () => {
                 if (!configRes.ok) throw new Error('Failed to save configuration');
                 
                 // Then test it
-                const res = await fetch('http://localhost:8888/api/v1/whatsapp/test', { method: 'POST' });
+                const res = await fetch(`${getApiBase()}/api/v1/whatsapp/test`, { method: 'POST' });
                 const data = await res.json();
                 if (res.ok) alert('✅ Test message sent!');
                 else alert('❌ ' + data.detail);
@@ -300,9 +301,9 @@ export const Settings: React.FC = () => {
                 background: 'rgba(0,0,0,0.2)', color: 'var(--text-primary)', fontSize: '14px', outline: 'none'
               }}
             >
-              <option value="Gemini 2.5 Flash">Gemini 2.5 Flash (Fastest)</option>
-              <option value="Gemini 2.5 Pro">Gemini 2.5 Pro (Best Reasoning)</option>
-              <option value="Gemini Flash Lite">Gemini Flash Lite (Most Efficient)</option>
+              <option value="Gemini 3.5 Flash">Gemini 3.5 Flash (Fastest)</option>
+              <option value="Gemini 3.5 Pro">Gemini 3.5 Pro (Best Reasoning)</option>
+              <option value="Gemini 3.5 Flash 8B">Gemini 3.5 Flash 8B (Most Efficient)</option>
             </select>
           </div>
 

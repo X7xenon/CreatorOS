@@ -39,3 +39,23 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+
+@router.websocket("/tailscale")
+async def websocket_tailscale(websocket: WebSocket):
+    # Determine IP from headers or client host, fallback to 'unknown'
+    client_ip = "unknown"
+    if websocket.client:
+        client_ip = websocket.client.host
+    
+    await manager.connect(websocket)
+    
+    try:
+        while True:
+            # Keep connection alive and handle incoming commands if any
+            data = await websocket.receive_text()
+            # For now, we only push data to the client, but we can handle commands here later
+            pass
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception as e:
+        manager.disconnect(websocket)

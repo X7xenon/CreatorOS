@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../components/GlassCard';
 import { useStore } from '../store/useStore';
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, X } from 'lucide-react';
+import { getApiBase } from '../utils/apiBase';
 
 interface CalendarEvent {
   id: string;
@@ -36,7 +37,7 @@ export const Calendar: React.FC = () => {
       const monthQuery = `&month=${currentDate.getMonth() + 1}`;
       const yearQuery = `&year=${currentDate.getFullYear()}`;
       
-      const res = await fetch(`http://localhost:8888/api/v1/calendar/events?${accountQuery}${monthQuery}${yearQuery}`);
+      const res = await fetch(`${getApiBase()}/api/v1/calendar/events?${accountQuery}${monthQuery}${yearQuery}`);
       if (res.ok) {
         const data = await res.json();
         setEvents(data);
@@ -68,7 +69,7 @@ export const Calendar: React.FC = () => {
     }
     
     try {
-      const res = await fetch('http://localhost:8888/api/v1/calendar/events', {
+      const res = await fetch(`${getApiBase()}/api/v1/calendar/events`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

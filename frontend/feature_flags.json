@@ -1,5 +1,5 @@
 {
   "ExperimentalWidgets": false,
-  "AIInsights": false,
+  "AIInsights": true,
   "Plugins": true
 }

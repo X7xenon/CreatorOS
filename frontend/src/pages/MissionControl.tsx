@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { GlassCard } from '../components/GlassCard';
+import { getApiBase } from '../utils/apiBase';
 import { useStore } from '../store/useStore';
 
 export const MissionControl: React.FC = () => {
@@ -26,7 +27,7 @@ export const MissionControl: React.FC = () => {
   }, [selectedFilter]);
 
   const fetchGoals = () => {
-    let url = 'http://localhost:8888/api/v1/mission/goals';
+    let url = `${getApiBase()}/api/v1/mission/goals`;
     if (selectedFilter !== 'all' && !selectedFilter.startsWith('platform_')) {
       url += `?account_id=${selectedFilter}`;
     }
@@ -49,7 +50,7 @@ export const MissionControl: React.FC = () => {
     };
     
     try {
-      await fetch('http://localhost:8888/api/v1/mission/goals', {
+      await fetch(`${getApiBase()}/api/v1/mission/goals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -75,13 +76,13 @@ export const MissionControl: React.FC = () => {
     }
 
     // Fetch achievements
-    fetch(`http://localhost:8888/api/v1/mission/achievements${qs}`)
+    fetch(`${getApiBase()}/api/v1/mission/achievements${qs}`)
       .then(res => res.json())
       .then(data => setAchievements(data))
       .catch(console.error);
       
     // Fetch upcoming calendar events (pending tasks)
-    fetch(`http://localhost:8888/api/v1/calendar/events${qs}`)
+    fetch(`${getApiBase()}/api/v1/calendar/events${qs}`)
       .then(res => res.json())
       .then(data => {
         setScheduled(data.filter((e: any) => e.status === 'Scheduled').slice(0, 5));

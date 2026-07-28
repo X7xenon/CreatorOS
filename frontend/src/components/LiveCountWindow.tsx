@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { GlassCard } from './GlassCard';
 import { motion } from 'framer-motion';
+import { getWsBase } from '../utils/apiBase';
 
 interface LiveCountWindowProps {
   initialCount?: number;
@@ -22,7 +23,7 @@ export const LiveCountWindow: React.FC<LiveCountWindowProps> = ({ initialCount =
   }, [initialCount]);
 
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8888/api/v1/ws/ws');
+    const ws = new WebSocket(`${getWsBase()}/api/v1/ws/ws`);
     
     ws.onmessage = (event) => {
       try {

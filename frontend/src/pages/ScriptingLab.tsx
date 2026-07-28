@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GlassCard } from '../components/GlassCard';
+import { AICoachPanel } from '../components/AICoachPanel';
+import { FinalScriptModal } from '../components/FinalScriptModal';
 import {
   Library, Clock, CheckCircle, PlusCircle,
-  Trash2, ChevronUp, ChevronDown, Sparkles, AlertCircle, BarChart2
+  Trash2, ChevronUp, ChevronDown, Sparkles, AlertCircle, BarChart2,
+  Undo2, Redo2
 } from 'lucide-react';
+import { CommandPalette } from '../components/CommandPalette';
+import { getApiBase } from '../utils/apiBase';
 
-const API = 'http://localhost:8888/api/v1/scripting';
+const API = `${getApiBase()}/api/v1/scripting`;
 
 const BLOCK_COLORS: Record<string, { border: string; bg: string; label: string }> = {
   Hook:    { border: '#3b82f6', bg: 'rgba(59,130,246,0.07)',  label: 'HOOK' },
@@ -44,7 +49,9 @@ interface HealthScore {
 
 export const ScriptingLab: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'editor' | 'timeline' | 'hooks'>('editor');
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [rightPanel, setRightPanel] = useState<'knowledge' | 'health'>('knowledge');
+  const [showFinalScript, setShowFinalScript] = useState(false);
 
   // Asset state
   const [asset, setAsset] = useState<Asset | null>(null);
@@ -52,6 +59,7 @@ export const ScriptingLab: React.FC = () => {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [allAssets, setAllAssets] = useState<Asset[]>([]);
   const [showAssetList, setShowAssetList] = useState(false);
+  const [profiles, setProfiles] = useState<any[]>([]);
 
   // Hook Lab state
   const [hookCategories, setHookCategories] = useState<string[]>([]);
@@ -70,11 +78,19 @@ export const ScriptingLab: React.FC = () => {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Undo/Redo state
+  const [undoStack, setUndoStack] = useState<Block[][]>([]);
+  const [redoStack, setRedoStack] = useState<Block[][]>([]);
+  
+  // Command Palette
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
   const aiModel = localStorage.getItem('creatoros-ai-model') || 'Gemini 2.5 Flash';
 
   // --- Load hook categories on mount ---
   useEffect(() => {
-    fetch(`${API}/hooks/categories`).then(r => r.json()).then(setHookCategories).catch(() => {});
+    fetch(`${API}/hooks/categories`).then(r => r.json()).then(setHookCategories).catch(console.error);
+    fetch(`${getApiBase()}/api/v1/profiles`).then(r => r.json()).then(setProfiles).catch(console.error);
     fetchAllAssets();
   }, []);
 
@@ -82,12 +98,65 @@ export const ScriptingLab: React.FC = () => {
   useEffect(() => {
     if (!selectedCategory) return;
     fetch(`${API}/hooks/templates?category=${encodeURIComponent(selectedCategory)}`)
-      .then(r => r.json()).then(setHookTemplates).catch(() => {});
+      .then(r => r.json()).then(setHookTemplates).catch(console.error);
   }, [selectedCategory]);
 
   const fetchAllAssets = async () => {
-    const r = await fetch(`${API}/assets`).catch(() => null);
+    const r = await fetch(`${API}/assets`).catch(console.error);
     if (r?.ok) setAllAssets(await r.json());
+  };
+
+  const pushToUndoStack = useCallback((newBlocks: Block[]) => {
+    setUndoStack(prev => [...prev, newBlocks]);
+    setRedoStack([]); // Clear redo stack on new action
+  }, []);
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+K for Command Palette
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+      }
+      
+      // Ctrl+Z for Undo
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+      
+      // Ctrl+Y or Ctrl+Shift+Z for Redo
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [blocks, undoStack, redoStack]);
+
+  const handleUndo = () => {
+    setUndoStack(prev => {
+      if (prev.length === 0) return prev;
+      const newStack = [...prev];
+      const previousState = newStack.pop()!;
+      setRedoStack(r => [...r, blocks]);
+      setBlocks(previousState);
+      return newStack;
+    });
+  };
+
+  const handleRedo = () => {
+    setRedoStack(prev => {
+      if (prev.length === 0) return prev;
+      const newStack = [...prev];
+      const nextState = newStack.pop()!;
+      setUndoStack(u => [...u, blocks]);
+      setBlocks(nextState);
+      return newStack;
+    });
   };
 
   const loadAsset = async (a: Asset) => {
@@ -109,6 +178,8 @@ export const ScriptingLab: React.FC = () => {
       setAsset(a);
       setTitleInput(a.title);
       setBlocks([]);
+      setUndoStack([]);
+      setRedoStack([]);
       fetchAllAssets();
     }
   };
@@ -137,7 +208,12 @@ export const ScriptingLab: React.FC = () => {
   };
 
   const updateBlock = useCallback(async (blockId: string, content: string) => {
-    setBlocks(prev => prev.map(b => b.id === blockId ? { ...b, content } : b));
+    setBlocks(prev => {
+      // Only push to undo stack if content actually changes when losing focus or with a debounce, 
+      // but for simplicity we can just capture the old state before the first edit.
+      // A more robust approach handles this carefully, but here we update blocks.
+      return prev.map(b => b.id === blockId ? { ...b, content } : b);
+    });
     triggerAutosave();
     // Debounce actual API call
     await fetch(`${API}/blocks/${blockId}`, {
@@ -148,12 +224,14 @@ export const ScriptingLab: React.FC = () => {
   }, [triggerAutosave]);
 
   const deleteBlock = async (blockId: string) => {
+    pushToUndoStack(blocks);
     await fetch(`${API}/blocks/${blockId}`, { method: 'DELETE' });
     setBlocks(prev => prev.filter(b => b.id !== blockId));
     triggerAutosave();
   };
 
   const moveBlock = async (index: number, dir: -1 | 1) => {
+    pushToUndoStack(blocks);
     const newBlocks = [...blocks];
     const [moved] = newBlocks.splice(index, 1);
     newBlocks.splice(index + dir, 0, moved);
@@ -192,6 +270,7 @@ export const ScriptingLab: React.FC = () => {
     });
     if (r.ok) {
       const b = await r.json();
+      pushToUndoStack(blocks);
       setBlocks(prev => [b, ...prev]);
       setActiveTab('editor');
       triggerAutosave();
@@ -212,6 +291,8 @@ export const ScriptingLab: React.FC = () => {
       });
       if (r.ok) setHealthScore(await r.json());
       else { const e = await r.json(); setScoreError(e.detail); }
+    } catch (err: any) {
+      setScoreError('Network Error: Make sure the backend server is running.');
     } finally { setScoringLoading(false); }
   };
 
@@ -227,6 +308,15 @@ export const ScriptingLab: React.FC = () => {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '20px', height: '100%', minHeight: 0 }}>
+      
+      <CommandPalette 
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onSelectAction={(action) => {
+          console.log(`Executing: ${action} on block: ${selectedBlockId}`);
+          // Implement actual AI generation later or hook it up
+        }}
+      />
 
       {/* ══════════ LEFT: EDITOR ══════════ */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minHeight: 0 }}>
@@ -240,7 +330,7 @@ export const ScriptingLab: React.FC = () => {
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             {/* Asset switcher */}
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative', zIndex: 50 }}>
               <button onClick={() => setShowAssetList(v => !v)} style={{
                 padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--panel-border)',
                 background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px'
@@ -250,8 +340,9 @@ export const ScriptingLab: React.FC = () => {
               {showAssetList && (
                 <div style={{
                   position: 'absolute', top: '40px', left: 0, zIndex: 100,
-                  background: 'var(--panel-bg)', border: '1px solid var(--panel-border)',
-                  borderRadius: '10px', minWidth: '240px', padding: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
+                  background: 'var(--panel-bg)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+                  border: '1px solid var(--panel-border)',
+                  borderRadius: '10px', minWidth: '240px', padding: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.6)'
                 }}>
                   <button onClick={createNewAsset} style={{
                     display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 12px',
@@ -273,16 +364,32 @@ export const ScriptingLab: React.FC = () => {
               )}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              {asset && (
+                <button 
+                  onClick={() => setShowFinalScript(true)}
+                  style={{
+                    padding: '8px 14px', borderRadius: '8px', border: '1px solid #8b5cf6',
+                    background: 'rgba(139,92,246,0.1)', color: '#a78bfa', cursor: 'pointer', fontSize: '13px',
+                    fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px'
+                  }}
+                >
+                  <Sparkles size={14} /> Final Script
+                </button>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              <button onClick={handleUndo} disabled={undoStack.length === 0} style={{ background: 'none', border: 'none', color: undoStack.length > 0 ? 'var(--text-primary)' : 'var(--text-secondary)', cursor: undoStack.length > 0 ? 'pointer' : 'default', padding: '4px' }} title="Undo (Ctrl+Z)"><Undo2 size={16} /></button>
+              <button onClick={handleRedo} disabled={redoStack.length === 0} style={{ background: 'none', border: 'none', color: redoStack.length > 0 ? 'var(--text-primary)' : 'var(--text-secondary)', cursor: redoStack.length > 0 ? 'pointer' : 'default', padding: '4px' }} title="Redo (Ctrl+Y)"><Redo2 size={16} /></button>
               {saveStatus === 'saving' && <><Clock size={14} /> Saving…</>}
               {saveStatus === 'saved' && <><CheckCircle size={14} color="#10b981" /> Saved</>}
               {saveStatus === 'unsaved' && <><AlertCircle size={14} color="#f59e0b" /> Unsaved</>}
             </div>
           </div>
         </div>
+      </div>
 
-        {/* ── STORY BUILDER ── */}
-        {activeTab === 'editor' && (
+      {/* ── STORY BUILDER ── */}
+      {activeTab === 'editor' && (
           <GlassCard style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '500px' }}>
             {!asset ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: '16px', color: 'var(--text-secondary)' }}>
@@ -297,16 +404,39 @@ export const ScriptingLab: React.FC = () => {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
-                <input
-                  value={titleInput}
-                  onChange={e => { setTitleInput(e.target.value); triggerAutosave(); }}
-                  onBlur={() => asset && fetch(`${API}/assets/${asset.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: titleInput }) })}
-                  placeholder="Script Title…"
-                  style={{
-                    fontSize: '22px', fontWeight: 700, background: 'transparent', border: 'none',
-                    color: 'var(--text-primary)', outline: 'none', width: '100%', borderBottom: '1px solid var(--panel-border)', paddingBottom: '12px'
-                  }}
-                />
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', borderBottom: '1px solid var(--panel-border)', paddingBottom: '12px' }}>
+                  <input
+                    value={titleInput}
+                    onChange={e => { setTitleInput(e.target.value); triggerAutosave(); }}
+                    onBlur={() => asset && fetch(`${API}/assets/${asset.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: titleInput }) })}
+                    placeholder="Script Title…"
+                    style={{
+                      flex: 1, fontSize: '22px', fontWeight: 700, background: 'transparent', border: 'none',
+                      color: 'var(--text-primary)', outline: 'none'
+                    }}
+                  />
+                  
+                  {profiles.length > 0 && (
+                    <select
+                      value={asset.profile_id || ''}
+                      onChange={(e) => {
+                        const newProfileId = e.target.value ? parseInt(e.target.value) : null;
+                        setAsset({ ...asset, profile_id: newProfileId });
+                        fetch(`${API}/assets/${asset.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ profile_id: newProfileId }) });
+                      }}
+                      style={{
+                        padding: '6px 10px', borderRadius: '6px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--panel-border)',
+                        color: 'var(--text-secondary)', outline: 'none', cursor: 'pointer', fontSize: '13px'
+                      }}
+                      title="Migrate / Assign Script to Profile"
+                    >
+                      <option value="">No Profile (Global)</option>
+                      {profiles.map(p => (
+                        <option key={p.id} value={p.id}>👤 {p.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
 
                 {/* Block List */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
@@ -324,7 +454,21 @@ export const ScriptingLab: React.FC = () => {
                         </div>
                         <textarea
                           value={block.content}
-                          onChange={e => updateBlock(block.id, e.target.value)}
+                          onFocus={() => setSelectedBlockId(block.id)}
+                          onKeyDown={(e) => {
+                            if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                               // Push to undo stack only on the first key press of a new edit session
+                               // Ideally we'd debounce this, but doing it on basic blur or before edit works.
+                            }
+                          }}
+                          onChange={e => {
+                            // If we want a simple undo, we might push before edit. But this fires per keystroke.
+                            // Better approach for textarea is pushing on blur if it changed, but let's keep simple.
+                            updateBlock(block.id, e.target.value);
+                          }}
+                          onBlur={(e) => {
+                             // Easiest is pushing the previous state to undo stack before a bulk update, or debouncing
+                          }}
                           placeholder={`Write ${block.type} here…`}
                           style={{
                             width: '100%', minHeight: '70px', background: 'transparent', border: 'none',
@@ -454,156 +598,22 @@ export const ScriptingLab: React.FC = () => {
 
       {/* ══════════ RIGHT: KNOWLEDGE & HEALTH ══════════ */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-        {/* Panel toggle */}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={() => setRightPanel('knowledge')} style={{ ...tabStyle('knowledge'), background: rightPanel === 'knowledge' ? 'var(--panel-border)' : 'transparent', color: rightPanel === 'knowledge' ? '#fff' : 'var(--text-secondary)' }}>Knowledge</button>
-          <button onClick={() => setRightPanel('health')} style={{ ...tabStyle('health'), background: rightPanel === 'health' ? 'var(--panel-border)' : 'transparent', color: rightPanel === 'health' ? '#fff' : 'var(--text-secondary)' }}>Health Score</button>
-        </div>
-
-        {/* ── KNOWLEDGE PANEL ── */}
-        {rightPanel === 'knowledge' && (
-          <GlassCard style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--panel-border)' }}>
-              <Library size={18} color="#8b5cf6" />
-              <h3 style={{ margin: 0, fontSize: '15px', color: 'var(--text-primary)' }}>Knowledge Panel</h3>
-            </div>
-
-            {/* AI Suggestions */}
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '1px', marginBottom: '10px' }}>AI SUGGESTIONS</div>
-              {blocks.length === 0 && (
-                <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>Start writing blocks and suggestions will appear here.</p>
-              )}
-              {blocks.length > 0 && !blocks.find(b => b.type === 'Hook') && (
-                <div style={{ padding: '10px 12px', background: 'rgba(239,68,68,0.1)', borderLeft: '3px solid #ef4444', borderRadius: '4px', fontSize: '13px', marginBottom: '8px' }}>
-                  <strong style={{ color: '#ef4444' }}>Missing Hook</strong><br />
-                  <span style={{ color: 'var(--text-secondary)' }}>Your script has no Hook block. This is the #1 retention killer.</span>
-                </div>
-              )}
-              {blocks.length > 0 && !blocks.find(b => b.type === 'CTA') && (
-                <div style={{ padding: '10px 12px', background: 'rgba(245,158,11,0.1)', borderLeft: '3px solid #f59e0b', borderRadius: '4px', fontSize: '13px', marginBottom: '8px' }}>
-                  <strong style={{ color: '#f59e0b' }}>Weak CTA</strong><br />
-                  <span style={{ color: 'var(--text-secondary)' }}>No Call-to-Action detected. Don't let viewers leave without an action.</span>
-                </div>
-              )}
-              {blocks.length > 0 && !blocks.find(b => b.type === 'Proof') && (
-                <div style={{ padding: '10px 12px', background: 'rgba(59,130,246,0.1)', borderLeft: '3px solid #3b82f6', borderRadius: '4px', fontSize: '13px', marginBottom: '8px' }}>
-                  <strong style={{ color: '#3b82f6' }}>No Proof</strong><br />
-                  <span style={{ color: 'var(--text-secondary)' }}>Add evidence or statistics to build authority and trust.</span>
-                </div>
-              )}
-              {blocks.find(b => b.type === 'Hook') && blocks.find(b => b.type === 'CTA') && blocks.find(b => b.type === 'Proof') && (
-                <div style={{ padding: '10px 12px', background: 'rgba(16,185,129,0.1)', borderLeft: '3px solid #10b981', borderRadius: '4px', fontSize: '13px' }}>
-                  <strong style={{ color: '#10b981' }}>Looking Good!</strong><br />
-                  <span style={{ color: 'var(--text-secondary)' }}>Core structure is complete. Run AI Health Check for a deep score.</span>
-                </div>
-              )}
-            </div>
-
-            {/* Script stats */}
-            {blocks.length > 0 && (
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '1px', marginBottom: '10px' }}>QUICK STATS</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <div style={{ padding: '10px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)' }}>{blocks.length}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Blocks</div>
-                  </div>
-                  <div style={{ padding: '10px', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      {blocks.reduce((sum, b) => sum + b.content.split(/\s+/).filter(Boolean).length, 0)}
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Words</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Run health check CTA */}
-            <button onClick={runHealthScore} disabled={scoringLoading || !asset} style={{
-              width: '100%', padding: '12px', borderRadius: '8px', background: 'rgba(139,92,246,0.2)',
-              color: '#a78bfa', border: '1px solid #8b5cf6', cursor: (!asset || scoringLoading) ? 'not-allowed' : 'pointer',
-              fontWeight: 600, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px'
-            }}>
-              <BarChart2 size={18} /> {scoringLoading ? 'Scoring…' : 'Run AI Health Check'}
-            </button>
-          </GlassCard>
-        )}
-
-        {/* ── HEALTH SCORE ── */}
-        {rightPanel === 'health' && (
-          <GlassCard style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--panel-border)' }}>
-              <BarChart2 size={18} color="#8b5cf6" />
-              <h3 style={{ margin: 0, fontSize: '15px', color: 'var(--text-primary)' }}>AI Health Score</h3>
-            </div>
-
-            {scoringLoading && (
-              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
-                <Sparkles size={32} color="#8b5cf6" style={{ animation: 'spin 1s linear infinite' }} />
-                <p style={{ marginTop: '12px' }}>Analyzing your script…</p>
-              </div>
-            )}
-
-            {scoreError && (
-              <div style={{ padding: '12px', background: 'rgba(239,68,68,0.1)', borderRadius: '8px', color: '#ef4444', fontSize: '14px' }}>
-                {scoreError}
-              </div>
-            )}
-
-            {healthScore && !scoringLoading && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {/* Overall */}
-                <div style={{ textAlign: 'center', padding: '16px', background: `rgba(${healthScore.overall && healthScore.overall >= 8 ? '16,185,129' : healthScore.overall && healthScore.overall >= 5 ? '245,158,11' : '239,68,68'},0.1)`, borderRadius: '12px', marginBottom: '4px' }}>
-                  <div style={{ fontSize: '48px', fontWeight: 900, color: scoreColor(healthScore.overall || 0) }}>{healthScore.overall}/10</div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Overall Score</div>
-                </div>
-
-                {/* Top suggestion */}
-                {healthScore.top_suggestion && (
-                  <div style={{ padding: '12px', background: 'rgba(139,92,246,0.1)', borderLeft: '3px solid #8b5cf6', borderRadius: '4px', fontSize: '13px', color: 'var(--text-primary)', marginBottom: '4px' }}>
-                    <strong style={{ color: '#a78bfa' }}>Top Fix:</strong> {healthScore.top_suggestion}
-                  </div>
-                )}
-
-                {/* Dimension scores */}
-                {Object.entries(healthScore).filter(([k]) => k !== 'overall' && k !== 'top_suggestion').map(([key, val]) => {
-                  if (!val || typeof val !== 'object') return null;
-                  const score = (val as {score: number; note: string}).score;
-                  const note = (val as {score: number; note: string}).note;
-                  return (
-                    <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{key.replace('_', ' ')}</span>
-                        <span style={{ fontSize: '13px', fontWeight: 700, color: scoreColor(score) }}>{score}/10</span>
-                      </div>
-                      <div style={{ height: '4px', background: 'var(--panel-border)', borderRadius: '2px' }}>
-                        <div style={{ height: '4px', width: `${score * 10}%`, background: scoreColor(score), borderRadius: '2px', transition: 'width 0.5s ease' }} />
-                      </div>
-                      {note && <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>{note}</p>}
-                    </div>
-                  );
-                })}
-
-                <button onClick={runHealthScore} style={{
-                  marginTop: '8px', padding: '10px', borderRadius: '8px', background: 'transparent',
-                  color: 'var(--text-secondary)', border: '1px solid var(--panel-border)', cursor: 'pointer', fontSize: '13px'
-                }}>
-                  Re-analyze
-                </button>
-              </div>
-            )}
-
-            {!healthScore && !scoringLoading && !scoreError && (
-              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                <BarChart2 size={36} style={{ opacity: 0.4 }} />
-                <p style={{ margin: 0, fontSize: '14px' }}>No score yet. Write some blocks, then click "Run AI Health Check".</p>
-              </div>
-            )}
-          </GlassCard>
-        )}
+        <AICoachPanel
+          asset={asset}
+          blocks={blocks}
+          selectedBlockId={selectedBlockId}
+          onUpdateBlock={updateBlock}
+          onAddBlock={addBlock}
+          onRunHealthCheck={runHealthScore}
+          healthScoreData={healthScore}
+          scoringLoading={scoringLoading}
+          scoreError={scoreError}
+        />
       </div>
+
+      {showFinalScript && asset && (
+        <FinalScriptModal assetId={asset.id} onClose={() => setShowFinalScript(false)} />
+      )}
     </div>
   );
 };

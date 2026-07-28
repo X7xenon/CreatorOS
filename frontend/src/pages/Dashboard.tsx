@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { GlassCard } from '../components/GlassCard';
+import { getApiBase, getWsBase } from '../utils/apiBase';
 import { HeroStats } from '../components/HeroStats';
 import { PerformanceChart } from '../components/PerformanceChart';
 import { LiveFeed } from '../components/LiveFeed';
@@ -17,7 +18,7 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     // Fetch real summary data from SQLite DB backend
-    fetch(`http://localhost:8888/api/v1/dashboard/summary?account_id=${selectedFilter}`)
+    fetch(`${getApiBase()}/api/v1/dashboard/summary?account_id=${selectedFilter}`)
       .then(res => res.json())
       .then(data => {
         setStats({
@@ -29,7 +30,7 @@ export const Dashboard: React.FC = () => {
       .catch(console.error);
       
     // Fetch detailed analytics for the growth chart
-    fetch(`http://localhost:8888/api/v1/dashboard/analytics/detailed?account_id=${selectedFilter}`)
+    fetch(`${getApiBase()}/api/v1/dashboard/analytics/detailed?account_id=${selectedFilter}`)
       .then(res => res.json())
       .then(data => {
         setFollowerGrowth(data.follower_growth || []);
@@ -37,7 +38,7 @@ export const Dashboard: React.FC = () => {
       .catch(console.error);
 
     // Keep WebSocket for live simulation feed
-    const ws = new WebSocket('ws://localhost:8888/api/v1/ws/ws');
+    const ws = new WebSocket(`${getWsBase()}/api/v1/ws/ws`);
     
     ws.onmessage = (event) => {
       try {

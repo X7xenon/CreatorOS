@@ -9,7 +9,9 @@ import { Settings } from './pages/Settings';
 import { Home } from './pages/Home';
 import { Compare } from './pages/Compare';
 import { ScriptingLab } from './pages/ScriptingLab';
+import { InspirationHub } from './pages/InspirationHub';
 import ProxyManager from './pages/ProxyManager';
+import { RemoteAccess } from './pages/RemoteAccess';
 import { useStore } from './store/useStore';
 
 function App() {
@@ -35,7 +37,9 @@ function App() {
         'compare': 'Compare',
         'calendar': 'Calendar',
         'scripting': 'Scripting Lab',
+        'inspiration': 'Inspiration Hub',
         'proxy': 'Proxy Manager',
+        'remote-access': 'Remote Access',
         'settings': 'Settings'
       };
       const tabName = titles[path] || path.charAt(0).toUpperCase() + path.slice(1);
@@ -56,7 +60,9 @@ function App() {
         <Route path="compare" element={<Compare />} />
         <Route path="calendar" element={<Calendar />} />
         <Route path="scripting" element={<ScriptingLab />} />
+        <Route path="inspiration" element={<InspirationHub />} />
         <Route path="proxy" element={<ProxyManager />} />
+        <Route path="remote-access" element={<RemoteAccess />} />
         <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>

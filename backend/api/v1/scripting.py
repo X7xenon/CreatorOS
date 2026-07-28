@@ -45,6 +45,7 @@ class AssetUpdate(BaseModel):
     status: Optional[str] = None
     goal: Optional[str] = None
     audience: Optional[str] = None
+    profile_id: Optional[int] = None
 
 class BlockCreate(BaseModel):
     asset_id: str
@@ -59,7 +60,18 @@ class BlockUpdate(BaseModel):
 
 class HealthScoreRequest(BaseModel):
     asset_id: str
-    model: str = "Gemini 2.5 Flash"
+    model: str = "gemini-3.5-flash"
+
+class BlockImproveRequest(BaseModel):
+    action: str
+    model: str = "gemini-3.5-flash"
+
+class AIRequestBase(BaseModel):
+    model: str = "gemini-3.5-flash"
+
+class ResearchRequest(BaseModel):
+    query: str
+    model: str = "gemini-3.5-flash"
 
 # --- Idea Analysis ---
 @router.post("/analyze")
@@ -249,6 +261,8 @@ def get_health_score(req: HealthScoreRequest, db: Session = Depends(get_db)):
         "evidence": {"score": "int 0-10", "note": "string"},
         "visual_potential": {"score": "int 0-10", "note": "string"},
         "virality": {"score": "int 0-10", "note": "string"},
+        "trust": {"score": "int 0-10", "note": "string"},
+        "curiosity": {"score": "int 0-10", "note": "string"},
         "overall": "int 0-10",
         "top_suggestion": "string — the single most impactful improvement"
     }
@@ -269,5 +283,106 @@ Be honest and critical. A score of 7+ means it's genuinely strong. Most scripts 
             asset.health_score = result["overall"]
             db.commit()
         return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- AI Writing Coach ---
+
+@router.post("/blocks/{block_id}/improve")
+def improve_block(block_id: str, req: BlockImproveRequest, db: Session = Depends(get_db)):
+    """Rewrites a specific block based on an action (e.g. 'Improve Hook', 'Make More Emotional')"""
+    if not ai.is_configured:
+        raise HTTPException(status_code=503, detail="AI not configured")
+        
+    block = db.query(ScriptBlock).filter(ScriptBlock.id == block_id).first()
+    if not block:
+        raise HTTPException(status_code=404, detail="Block not found")
+        
+    prompt = f"Action: {req.action}\n\nRewrite this {block.type} block according to the action. Keep it concise and natural. If the action asks to add something like an example or proof, add it creatively.\n\nCurrent Text:\n{block.content}"
+    try:
+        new_text = ai.generate_text(prompt=prompt, system_prompt=CREATOR_SYSTEM_PROMPT, model=req.model)
+        # We don't save to DB automatically, we return it to the frontend to preview/replace
+        return {"original": block.content, "improved": new_text.strip()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/assets/{asset_id}/director")
+def ai_director(asset_id: str, req: AIRequestBase, db: Session = Depends(get_db)):
+    if not ai.is_configured:
+        raise HTTPException(status_code=503, detail="AI not configured")
+        
+    asset = db.query(ContentAsset).filter(ContentAsset.id == asset_id).first()
+    blocks = db.query(ScriptBlock).filter(ScriptBlock.asset_id == asset_id).order_by(ScriptBlock.order).all()
+    script_text = "\n\n".join([f"[{b.type}]\n{b.content}" for b in blocks])
+    
+    schema = {
+        "style": "string (e.g., Fast-paced Shorts, Cinematic Documentary)",
+        "camera": ["string (e.g., Talking Head, Handheld)"],
+        "b_roll": ["string (e.g., Laptop, Coding, Stock Footage)"],
+        "zoom": "string (e.g., Punch Zoom, Dynamic Zoom)",
+        "captions": "string (e.g., Karaoke, Minimal)",
+        "transitions": ["string (e.g., Hard Cut, Whip Pan)"],
+        "sfx": ["string (e.g., Whoosh, Pop)"],
+        "music": "string (e.g., Motivational, Cinematic)",
+        "vfx": ["string (e.g., Motion Blur, Glow)"],
+        "emojis": ["string (emojis only)"]
+    }
+    
+    prompt = f"Act as an AI Video Director. Analyze this script and recommend the best visual and audio editing style.\n\nScript:\n{script_text}"
+    try:
+        director_data = ai.analyze_json(prompt=prompt, schema=schema, system_prompt=CREATOR_SYSTEM_PROMPT, model=req.model)
+        if asset:
+            asset.director_data = director_data
+            db.commit()
+        return director_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/assets/{asset_id}/coach-suggestions")
+def coach_suggestions(asset_id: str, req: AIRequestBase, db: Session = Depends(get_db)):
+    if not ai.is_configured:
+        raise HTTPException(status_code=503, detail="AI not configured")
+        
+    blocks = db.query(ScriptBlock).filter(ScriptBlock.asset_id == asset_id).order_by(ScriptBlock.order).all()
+    script_text = "\n\n".join([f"[{b.type}]\n{b.content}" for b in blocks])
+    
+    schema = {
+        "suggestions": ["string (actionable advice, e.g. 'Add a curiosity gap after the hook', 'The CTA is weak')"]
+    }
+    
+    prompt = f"Act as a Writing Coach. Analyze this script and provide 3-5 specific, contextual suggestions to improve retention and engagement. Do not provide generic advice. Be very specific to the script text.\n\nScript:\n{script_text}"
+    try:
+        res = ai.analyze_json(prompt=prompt, schema=schema, system_prompt=CREATOR_SYSTEM_PROMPT, model=req.model)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/assets/{asset_id}/audience-questions")
+def audience_questions(asset_id: str, req: AIRequestBase, db: Session = Depends(get_db)):
+    if not ai.is_configured:
+        raise HTTPException(status_code=503, detail="AI not configured")
+        
+    blocks = db.query(ScriptBlock).filter(ScriptBlock.asset_id == asset_id).order_by(ScriptBlock.order).all()
+    script_text = "\n\n".join([b.content for b in blocks])
+    
+    schema = {
+        "questions": ["string (e.g., 'Is this actually true?', 'How much does it cost?')"]
+    }
+    
+    prompt = f"Analyze this script and predict 3-5 questions or objections the audience will have while watching. This helps the creator answer them before publishing.\n\nScript:\n{script_text}"
+    try:
+        return ai.analyze_json(prompt=prompt, schema=schema, system_prompt=CREATOR_SYSTEM_PROMPT, model=req.model)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/research")
+def research_assistant(req: ResearchRequest):
+    if not ai.is_configured:
+        raise HTTPException(status_code=503, detail="AI not configured")
+        
+    prompt = f"As a Research Assistant, {req.query}. Provide a concise, highly relevant response that a creator can directly insert into their script as proof, statistics, or examples."
+    try:
+        text = ai.generate_text(prompt=prompt, system_prompt=CREATOR_SYSTEM_PROMPT, model=req.model)
+        return {"result": text.strip()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

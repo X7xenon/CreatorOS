@@ -8,6 +8,7 @@ class ContentAsset(Base):
     __tablename__ = "content_assets"
 
     id = Column(String, primary_key=True, index=True)
+    profile_id = Column(Integer, ForeignKey("creator_profiles.id"), nullable=True)
     type = Column(String, default="Script")  # Script, Blog, Tweet, Reel, Podcast
     title = Column(String, nullable=True)
     status = Column(String, default="Draft") # Draft, Analyzing, Ready, Published
@@ -15,6 +16,7 @@ class ContentAsset(Base):
     audience = Column(String, nullable=True)
     language = Column(String, default="en")
     health_score = Column(Float, nullable=True)
+    director_data = Column(JSON, nullable=True)
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

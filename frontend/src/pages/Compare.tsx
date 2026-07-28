@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { GlassCard } from '../components/GlassCard';
+import { getApiBase } from '../utils/apiBase';
 import { useStore } from '../store/useStore';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js';
@@ -20,7 +21,7 @@ export const Compare: React.FC = () => {
     // We pass the handles to the comparison API
     const queryParams = connectedAccounts.slice(0, 4).map(acc => `usernames=${acc.handle}`).join('&');
     
-    fetch(`http://localhost:8888/api/v1/comparison/?${queryParams}`)
+    fetch(`${getApiBase()}/api/v1/comparison/?${queryParams}`)
       .then(res => res.json())
       .then(res => {
           setData(res.comparisons);

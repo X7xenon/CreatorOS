@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Shield, Plus, RefreshCw, Upload, Download, Wifi, WifiOff, Loader2, Trash2, CheckCircle, XCircle, MinusCircle, Globe } from 'lucide-react';
+import { getApiBase } from '../utils/apiBase';
 
-const API = 'http://localhost:8888/api/v1/proxy';
+const API = `${getApiBase()}/api/v1/proxy`;
 
 type ProxyStatus = 'ACTIVE' | 'DEAD' | 'DISABLED';
 type ProxyType = 'Residential' | 'ISP' | 'Datacenter';

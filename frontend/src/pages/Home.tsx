@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { GlassCard } from '../components/GlassCard';
+import { getApiBase } from '../utils/apiBase';
 import { useStore } from '../store/useStore';
 
 interface Video {
@@ -16,7 +17,7 @@ export const Home: React.FC = () => {
   const { selectedFilter } = useStore();
 
   useEffect(() => {
-    fetch(`http://localhost:8888/api/v1/dashboard/top-videos?account_id=${selectedFilter}`)
+    fetch(`${getApiBase()}/api/v1/dashboard/top-videos?account_id=${selectedFilter}`)
       .then(res => res.json())
       .then(data => {
         // Sort by views descending
