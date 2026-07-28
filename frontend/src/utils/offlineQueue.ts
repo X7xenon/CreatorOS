@@ -23,6 +23,13 @@ export class OfflineQueue {
     localStorage.setItem(this.KEY, JSON.stringify([]));
   }
 
+  static removeItems(itemsToRemove: any[]) {
+    const currentItems = this.getItems();
+    const toRemoveSet = new Set(itemsToRemove.map(i => i._queuedAt));
+    const newItems = currentItems.filter(i => !toRemoveSet.has(i._queuedAt));
+    localStorage.setItem(this.KEY, JSON.stringify(newItems));
+  }
+
   static get count() {
     return this.getItems().length;
   }

@@ -24,12 +24,17 @@ def get_stats():
     if PSUTIL_AVAILABLE:
         cpu = psutil.cpu_percent(interval=None)
         ram = psutil.virtual_memory().percent
+        try:
+            disk = psutil.disk_usage(os.path.abspath(os.sep)).percent
+        except:
+            pass
     
-    try:
-        total, used, free = shutil.disk_usage("/")
-        disk = (used / total) * 100
-    except:
-        pass
+    if disk == 0:
+        try:
+            total, used, free = shutil.disk_usage(os.path.abspath(os.sep))
+            disk = (used / total) * 100
+        except:
+            pass
         
     return {
         "cpu": cpu,

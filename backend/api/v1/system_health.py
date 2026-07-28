@@ -6,6 +6,10 @@ from core.database import get_db, engine
 from sqlalchemy import text
 from core.ws_manager import manager
 import httpx
+import logging
+import os
+
+logger = logging.getLogger("SystemHealth")
 
 router = APIRouter()
 
@@ -39,7 +43,8 @@ async def get_system_health():
                 health["frontend"] = "healthy"
             else:
                 health["frontend"] = "warning"
-    except Exception:
+    except httpx.RequestError as e:
+        logger.warning(f"Frontend health check failed: {e}")
         health["frontend"] = "offline"
 
     # DB check
@@ -47,8 +52,9 @@ async def get_system_health():
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
             health["database"] = "healthy"
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        health["database"] = "offline"
 
     # Tailscale check
     try:
@@ -57,18 +63,20 @@ async def get_system_health():
             health["tailscale"] = "healthy"
         else:
             health["tailscale"] = "offline"
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Tailscale health check failed: {e}")
+        health["tailscale"] = "offline"
 
     # Storage check
     try:
-        total, used, free = shutil.disk_usage("/")
+        total, used, free = shutil.disk_usage(os.path.abspath(os.sep))
         if free / total < 0.05: # less than 5% free
             health["storage"] = "warning"
         else:
             health["storage"] = "healthy"
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Storage health check failed: {e}")
+        health["storage"] = "offline"
 
     return health
 
@@ -84,8 +92,8 @@ async def poll_system_health():
                 "type": "health_update",
                 "payload": health
             })
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Health poller error: {e}")
         await asyncio.sleep(10)
 
 def start_health_poller():

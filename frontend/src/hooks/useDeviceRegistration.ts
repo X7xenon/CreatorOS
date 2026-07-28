@@ -27,8 +27,12 @@ export const useDeviceRegistration = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(device)
-      }).then(() => {
-        registered.current = true;
+      }).then((res) => {
+        if (res.ok) {
+          registered.current = true;
+        } else {
+          console.error("Failed to register device");
+        }
       }).catch(console.error);
     }
   }, [connected, tailscaleIp]);

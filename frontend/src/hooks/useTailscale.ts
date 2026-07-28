@@ -34,7 +34,7 @@ export const useTailscale = () => {
             body: JSON.stringify(items)
           }).then((res) => {
             if (res.ok) {
-              OfflineQueue.clear();
+              OfflineQueue.removeItems(items);
             } else {
               console.error('Failed to push offline queue to backend');
             }
